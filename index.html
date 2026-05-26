@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dla Kruszynki</title>
+<style>
+  body {
+    margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #ffe6e6; display: flex; flex-direction: column;
+    align-items: center; height: 100vh; overflow: hidden;
+  }
+  h1 { text-align: center; margin-top: 30px; font-size: 22px; color: #d6336c; padding: 0 10px; }
+  #board {
+    width: 90vw; max-width: 400px; height: 60vh; background: #fff; border-radius: 20px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1); position: relative;
+    overflow: hidden; margin-top: 15px; border: 2px dashed #ffb3c6;
+  }
+  .dog {
+    position: absolute; width: 65px; height: 65px;
+    background: #fff0f3; border: 2px solid #ffccd5; border-radius: 50%;
+    display: flex; justify-content: center; align-items: center;
+    font-size: 35px; cursor: grab; user-select: none;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.1);
+    touch-action: none; transition: transform 0.1s;
+  }
+  .dog:active { transform: scale(1.15); z-index: 100; cursor: grabbing; }
+  #btn-add {
+    margin-top: 25px; padding: 15px 35px; font-size: 18px; font-weight: bold;
+    background: #d6336c; color: white; border: none; border-radius: 30px;
+    cursor: pointer; box-shadow: 0 4px 10px rgba(214, 51, 108, 0.4);
+    transition: transform 0.1s, background 0.2s;
+  }
+  #btn-add:active { transform: scale(0.95); background: #c2295d; }
+  #win-screen {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(255, 230, 230, 0.97); display: none;
+    flex-direction: column; justify-content: center; align-items: center;
+    text-align: center; padding: 30px; box-sizing: border-box; z-index: 200;
+  }
+  #win-title { font-size: 20px; color: #d6336c; margin-bottom: 20px; font-weight: bold;}
+  #win-text { font-size: 20px; color: #590d22; line-height: 1.5; }
+</style>
+</head>
+<body>
+
+<h1>Połącz dwa takie same pieski, aż odkryjesz Chihuahuę! 🐶</h1>
+<div id="board"></div>
+<button id="btn-add">Dodaj pieska 🐾</button>
+
+<div id="win-screen">
+  <div id="win-title">Mamy Chihuahuę! 👑</div>
+  <div id="win-text">przepraszam za moj glupi tekst serio bylem skupiony na rozmowie z Toba i z calego serca Cie przepraszam wiem ze to nie bylo na miejscu bo pokazalo wlasnie jak bardzo Cie slucham</div>
+</div>
+
+<script>
+  const board = document.getElementById('board');
+  const btnAdd = document.getElementById('btn-add');
+  const winScreen = document.getElementById('win-screen');
+  
+  // Kolejność ewolucji piesków
+  const levels = ['🐶', '🐕', '🐩', '🦮', '🐕‍🦺', '👑'];
+  
+  btnAdd.addEventListener('click', () => {
+    createDog(0, Math.random() * (board.clientWidth - 65), Math.random() * (board.clientHeight - 65));
+  });
+  
+  function createDog(level, x, y) {
+    const el = document.createElement('div');
+    el.className = 'dog';
+    el.innerText = levels[level];
+    el.dataset.level = level;
+    el.style.left = x + 'px';
+    el.style.top = y + 'px';
+    
+    board.appendChild(el);
+    
+    let isDragging = false;
+    let startX, startY, initialX, initialY;
+    
+    el.addEventListener('pointerdown', (e) => {
+      isDragging = true;
+      startX = e.clientX;
+      startY = e.clientY;
+      initialX = parseFloat(el.style.left);
+      initialY = parseFloat(el.style.top);
+      el.setPointerCapture(e.pointerId);
+      el.style.zIndex = 100;
+    });
+    
+    el.addEventListener('pointermove', (e) => {
+      if (!isDragging) return;
+      
+      let newX = initialX + (e.clientX - startX);
+      let newY = initialY + (e.clientY - startY);
+      
+      // Blokada wychodzenia poza planszę
+      newX = Math.max(0, Math.min(newX, board.clientWidth - 65));
+      newY = Math.max(0, Math.min(newY, board.clientHeight - 65));
+      
+      el.style.left = newX + 'px';
+      el.style.top = newY + 'px';
+    });
+    
+    el.addEventListener('pointerup', (e) => {
+      isDragging = false;
+      el.releasePointerCapture(e.pointerId);
+      el.style.zIndex = '';
+      checkMerge(el);
+    });
+  }
+  
+  function checkMerge(draggedEl) {
+    const rect1 = draggedEl.getBoundingClientRect();
+    const allDogs = document.querySelectorAll('.dog');
+    
+    for (let otherEl of allDogs) {
+      if (otherEl === draggedEl) continue;
+      
+      const rect2 = otherEl.getBoundingClientRect();
+      
+      // Sprawdzanie kolizji
+      if (!(rect1.right < rect2.left || 
+            rect1.left > rect2.right || 
+            rect1.bottom < rect2.top || 
+            rect1.top > rect2.bottom)) {
+            
+        let lvl1 = parseInt(draggedEl.dataset.level);
+        let lvl2 = parseInt(otherEl.dataset.level);
+        
+        // Łączenie w kolejny poziom, jeśli psy są takie same
+        if (lvl1 === lvl2) {
+          const newLevel = lvl1 + 1;
+          
+          draggedEl.remove();
+          otherEl.remove();
+          
+          if (newLevel >= levels.length - 1) {
+            winScreen.style.display = 'flex'; // Wyświetlenie przeprosin
+          } else {
+            createDog(newLevel, parseFloat(otherEl.style.left), parseFloat(otherEl.style.top));
+          }
+          break;
+        }
+      }
+    }
+  }
+
+  // Pierwszy szczeniak na zachętę
+  setTimeout(() => btnAdd.click(), 500);
+</script>
+</body>
+</html>
